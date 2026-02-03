@@ -1,0 +1,43 @@
+# Secrets / env files
+.env
+.env.*
+!.env.example
+
+# Local databases and data dumps
+*.db
+*.sqlite
+*.sqlite3
+/data/
+
+# Logs
+*.log
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db

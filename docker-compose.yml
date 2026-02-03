@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: inver-web
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+      - .:/app
+    restart: unless-stopped
+    # Use Buenos Aires time for correct scheduling if needed
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+
+  scheduler:
+    build: .
+    container_name: inver-scheduler
+    # Override the default command to run the scheduler script
+    command: python src/scheduler.py
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+      - .:/app
+    restart: unless-stopped
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    depends_on:
+      - web

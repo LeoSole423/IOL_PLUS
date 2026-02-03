@@ -1,0 +1,11 @@
+requests
+pandas
+yfinance
+python-dotenv
+streamlit
+plotly
+google-generativeai
+schedule
+streamlit-authenticator
+cryptography
+bcrypt
