@@ -9,7 +9,8 @@ load_dotenv()
 
 class AuthManager:
     def __init__(self, db_path="data/inver.db"):
-        self.db_path = db_path
+        self.db_path = self._resolve_db_path(db_path)
+        self._ensure_db_dir()
         self._key = os.getenv("ENCRYPTION_KEY")
         if not self._key:
             # Generate a key if missing (fallback for dev, but better to enforce env)
@@ -21,6 +22,17 @@ class AuthManager:
             
         self.cookie_key = os.getenv("COOKIE_KEY", "random_default_123")
         self._init_users_table()
+
+    def _resolve_db_path(self, db_path):
+        if os.path.isabs(db_path):
+            return db_path
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        return os.path.join(project_root, db_path)
+
+    def _ensure_db_dir(self):
+        dirname = os.path.dirname(self.db_path)
+        if dirname and not os.path.exists(dirname):
+            os.makedirs(dirname)
         
     def _init_users_table(self):
         conn = sqlite3.connect(self.db_path)
@@ -111,7 +123,7 @@ class AuthManager:
     def get_user_keys(self, username):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-        c.execute("SELECT gemini_key_enc, iol_user_enc, iol_pass_enc FROM users WHERE username=?", (username,))
+        c.execute("SELECT gemini_key_enc, iol_user_enc, iol_pass_enc FROM users WHERE username=? COLLATE NOCASE", (username,))
         row = c.fetchone()
         conn.close()
         
@@ -129,15 +141,15 @@ class AuthManager:
         
         if gemini is not None:
             enc = self.encrypt(gemini)
-            c.execute("UPDATE users SET gemini_key_enc=? WHERE username=?", (enc, username))
+            c.execute("UPDATE users SET gemini_key_enc=? WHERE username=? COLLATE NOCASE", (enc, username))
         
         if iol_user is not None:
             enc = self.encrypt(iol_user)
-            c.execute("UPDATE users SET iol_user_enc=? WHERE username=?", (enc, username))
+            c.execute("UPDATE users SET iol_user_enc=? WHERE username=? COLLATE NOCASE", (enc, username))
             
         if iol_pass is not None:
             enc = self.encrypt(iol_pass)
-            c.execute("UPDATE users SET iol_pass_enc=? WHERE username=?", (enc, username))
+            c.execute("UPDATE users SET iol_pass_enc=? WHERE username=? COLLATE NOCASE", (enc, username))
             
         conn.commit()
         conn.close()
@@ -145,7 +157,7 @@ class AuthManager:
     def user_exists(self, username):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-        c.execute("SELECT 1 FROM users WHERE username=?", (username,))
+        c.execute("SELECT 1 FROM users WHERE username=? COLLATE NOCASE", (username,))
         exists = c.fetchone() is not None
         conn.close()
         return exists

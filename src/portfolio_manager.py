@@ -5,9 +5,15 @@ import os
 
 class PortfolioManager:
     def __init__(self, db_path="data/inver.db"):
-        self.db_path = db_path
+        self.db_path = self._resolve_db_path(db_path)
         self._ensure_db_dir()
         self.init_db()
+
+    def _resolve_db_path(self, db_path):
+        if os.path.isabs(db_path):
+            return db_path
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        return os.path.join(project_root, db_path)
 
     def _ensure_db_dir(self):
         """Ensures the data directory exists."""

@@ -135,6 +135,13 @@ def clean_ai_response(text):
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
+def iol_credentials_status(iol_user, iol_pass):
+    if iol_user and iol_pass:
+        return "✅ IOL: Credenciales guardadas"
+    if iol_user or iol_pass:
+        return "⚠️ IOL: Credenciales incompletas"
+    return "⚠️ IOL: Credenciales no guardadas"
+
 def run_app(username, full_name, gemini_key, iol_user, iol_pass):
     st.title(f"💰 Personal Investment Assistant")
     st.caption(f"Logged in as: {full_name}")
@@ -157,6 +164,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
 
         if use_simulation:
             st.caption("🧪 Running in Simulation Mode")
+            st.info("Desactiva Simulation Mode para traer datos reales de IOL.")
             portfolio_data = [
                 {"Symbol": "SPY.BA", "Description": "S&P 500 ETF CEDEAR", "Quantity": 10, "Last Price": 52250.0, "Total Value": 522500.0, "Daily Var %": 0.5},
                 {"Symbol": "GGAL.BA", "Description": "Grupo Financiero Galicia", "Quantity": 100, "Last Price": 8125.0, "Total Value": 812500.0, "Daily Var %": -1.2},
@@ -186,6 +194,12 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
                              "Total Value": total_val,
                              "Daily Var %": daily_var
                          })
+                elif raw_portfolio:
+                    if isinstance(raw_portfolio, dict):
+                        keys = ", ".join(raw_portfolio.keys())
+                        st.warning(f"IOL respondió, pero no se encontraron activos. Claves: {keys}")
+                    else:
+                        st.warning("IOL respondió, pero el formato no es el esperado.")
             except Exception as e:
                 st.error(f"Failed to connect to IOL: {e}")
                 # Fallback to empty if error?
@@ -397,6 +411,7 @@ def main():
 
     if st.session_state["authentication_status"]:
         username = st.session_state["username"]
+        user_key = username.strip().lower()
         name = st.session_state["name"]
         
         # Logout & Settings Sidebar
@@ -406,29 +421,66 @@ def main():
             
             with st.expander("🔐 API Credentials"):
                 # Load current keys
-                keys = auth_manager.get_user_keys(username)
+                keys = auth_manager.get_user_keys(user_key)
+                if auth_manager.cipher is None:
+                    st.error("ENCRYPTION_KEY no configurada. No se pueden guardar credenciales. Corrige .env y reinicia.")
                 
                 new_gemini = st.text_input("Gemini API Key", value=keys.get("gemini") or "", type="password")
                 new_iol_u = st.text_input("IOL Username", value=keys.get("iol_user") or "", type="password")
                 new_iol_p = st.text_input("IOL Password", value=keys.get("iol_pass") or "", type="password")
+
+                st.caption(iol_credentials_status(keys.get("iol_user"), keys.get("iol_pass")))
+
+                st.session_state["iol_user_input"] = new_iol_u
+                st.session_state["iol_pass_input"] = new_iol_p
+                if (new_iol_u or new_iol_p) and not (keys.get("iol_user") and keys.get("iol_pass")):
+                    st.info("Usando credenciales ingresadas en esta sesión. Guardalas para persistir.")
                 
                 if st.button("Save Credentials"):
-                    auth_manager.update_user_keys(username, new_gemini, new_iol_u, new_iol_p)
-                    st.success("Saved!")
-                    st.rerun()
+                    if auth_manager.cipher is None:
+                        st.error("No se pueden guardar credenciales sin ENCRYPTION_KEY.")
+                    else:
+                        try:
+                            auth_manager.update_user_keys(user_key, new_gemini, new_iol_u, new_iol_p)
+                            saved = auth_manager.get_user_keys(user_key)
+                            if saved.get("iol_user") or saved.get("iol_pass") or saved.get("gemini"):
+                                st.success("Saved!")
+                            else:
+                                st.warning("Guardado, pero no se pudo leer desde la DB. Revisá ENCRYPTION_KEY.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"No se pudo guardar: {e}")
+
+                if st.button("Check IOL Credentials"):
+                    test_iol_u = new_iol_u or keys.get("iol_user")
+                    test_iol_p = new_iol_p or keys.get("iol_pass")
+                    if not test_iol_u or not test_iol_p:
+                        st.warning("Ingresá usuario y contraseña de IOL (o guardalas) para verificar.")
+                    else:
+                        with st.spinner("Conectando a IOL..."):
+                            try:
+                                iol = IOLClient(test_iol_u, test_iol_p)
+                                iol.authenticate()
+                                portfolio = iol.get_portfolio()
+                                if isinstance(portfolio, dict) and "activos" in portfolio:
+                                    st.success(f"Credenciales IOL válidas. Activos: {len(portfolio['activos'])}.")
+                                else:
+                                    st.success("Credenciales IOL válidas. Conexión OK (portafolio sin activos o formato distinto).")
+                            except Exception as e:
+                                st.error(f"Falló la verificación de IOL: {e}")
 
         # Get credentials for the session
-        keys = auth_manager.get_user_keys(username)
+        keys = auth_manager.get_user_keys(user_key)
         gemini_key = keys.get("gemini") or os.getenv("GEMINI_API_KEY") # Fallback to global if using admin
-        iol_u = keys.get("iol_user")
-        iol_p = keys.get("iol_pass")
+        iol_u = st.session_state.get("iol_user_input") or keys.get("iol_user")
+        iol_p = st.session_state.get("iol_pass_input") or keys.get("iol_pass")
         
         # If user is admin and no personal keys, fallback to env
-        if username == "admin":
+        if user_key == "admin":
              if not iol_u: iol_u = os.getenv("IOL_USERNAME")
              if not iol_p: iol_p = os.getenv("IOL_PASSWORD")
 
-        run_app(username, name, gemini_key, iol_u, iol_p)
+        run_app(user_key, name, gemini_key, iol_u, iol_p)
 
     elif st.session_state["authentication_status"] is False:
         st.error("Username/password is incorrect")
