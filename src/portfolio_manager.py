@@ -163,8 +163,8 @@ class PortfolioManager:
         """Returns history for a specific user."""
         conn = sqlite3.connect(self.db_path)
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        query = f"SELECT * FROM portfolio_snapshots WHERE date >= '{start_date}' AND user_id = '{user_id}' ORDER BY date ASC"
-        df = pd.read_sql_query(query, conn)
+        query = "SELECT * FROM portfolio_snapshots WHERE date >= ? AND user_id = ? ORDER BY date ASC"
+        df = pd.read_sql_query(query, conn, params=(start_date, user_id))
         conn.close()
         return df
 
@@ -186,15 +186,15 @@ class PortfolioManager:
         prev_month_val = get_value_days_ago(30)
         
         result = {}
-        if prev_day_val:
+        if prev_day_val is not None:
             diff = current_value - prev_day_val
             pct = (diff / prev_day_val) * 100 if prev_day_val else 0
             result['daily'] = (diff, pct)
-        if prev_week_val:
+        if prev_week_val is not None:
             diff = current_value - prev_week_val
             pct = (diff / prev_week_val) * 100 if prev_week_val else 0
             result['weekly'] = (diff, pct)
-        if prev_month_val:
+        if prev_month_val is not None:
             diff = current_value - prev_month_val
             pct = (diff / prev_month_val) * 100 if prev_month_val else 0
             result['monthly'] = (diff, pct)
@@ -228,9 +228,9 @@ class PortfolioManager:
             val_7d = get_hist_val(7)
             val_30d = get_hist_val(30)
             
-            if val_1d: new_asset['Daily Gain'] = curr_val - val_1d
-            if val_7d: new_asset['Weekly Gain'] = curr_val - val_7d
-            if val_30d: new_asset['Monthly Gain'] = curr_val - val_30d
+            if val_1d is not None: new_asset['Daily Gain'] = curr_val - val_1d
+            if val_7d is not None: new_asset['Weekly Gain'] = curr_val - val_7d
+            if val_30d is not None: new_asset['Monthly Gain'] = curr_val - val_30d
                 
             enriched_assets.append(new_asset)
             
@@ -250,7 +250,7 @@ class PortfolioManager:
     
     def get_analyses(self, limit=10, user_id='admin'):
         conn = sqlite3.connect(self.db_path)
-        query = f"SELECT id, timestamp, model, investment_amount, portfolio_value, response FROM ai_analyses WHERE user_id = '{user_id}' ORDER BY id DESC LIMIT {limit}"
-        df = pd.read_sql_query(query, conn)
+        query = "SELECT id, timestamp, model, investment_amount, portfolio_value, response FROM ai_analyses WHERE user_id = ? ORDER BY id DESC LIMIT ?"
+        df = pd.read_sql_query(query, conn, params=(user_id, limit))
         conn.close()
         return df

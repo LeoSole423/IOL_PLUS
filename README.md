@@ -51,11 +51,24 @@
    # Obligatorio para el análisis IA
    GEMINI_API_KEY=tu_api_key_aqui
 
+   # Obligatorio para guardar credenciales y cifrar datos sensibles
+   # Genera una clave con:
+   # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ENCRYPTION_KEY=tu_clave_fernet_aqui
+
+   # Recomendado: clave para cookies de sesión (si no se setea, se usa ENCRYPTION_KEY)
+   COOKIE_KEY=tu_cookie_key_aqui
+
+   # Recomendado: contraseña del usuario admin inicial
+   # Si no se setea, se genera una temporal y se imprime en consola al iniciar
+   ADMIN_PASSWORD=una_password_segura
+
    # Opcional: Solo si usas la integración con InvertirOnline
    IOL_USERNAME=tu_usuario_iol
    IOL_PASSWORD=tu_password_iol
    ```
    *Nota: Si no configuras las credenciales de IOL, la app funcionará en "Modo Simulación" por defecto.*
+   *Nota: Si no configuras `ENCRYPTION_KEY`, la app no podrá guardar credenciales en la base de datos.*
 
 ## ▶️ Ejecución
 

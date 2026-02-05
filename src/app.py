@@ -142,6 +142,16 @@ def iol_credentials_status(iol_user, iol_pass):
         return "⚠️ IOL: Credenciales incompletas"
     return "⚠️ IOL: Credenciales no guardadas"
 
+def render_ai_response(text):
+    st.markdown('<div class="ai-response">', unsafe_allow_html=True)
+    st.markdown(text)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def render_history_card(text):
+    st.markdown('<div class="history-card">', unsafe_allow_html=True)
+    st.markdown(text)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def run_app(username, full_name, gemini_key, iol_user, iol_pass):
     st.title(f"💰 Personal Investment Assistant")
     st.caption(f"Logged in as: {full_name}")
@@ -377,7 +387,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
                     pm.save_analysis(used_model, investment_amount, portfolio_val, cleaned_text, user_id=username)
                     
                     st.success(f"Generated with {used_model}")
-                    st.markdown(f'<div class="ai-response">{cleaned_text}</div>', unsafe_allow_html=True)
+                    render_ai_response(cleaned_text)
         else:
             st.warning("Needs API Key")
 
@@ -393,7 +403,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
                      with st.container():
                         st.caption(f"📅 {row['timestamp']} | 🤖 {row['model']} | 💵 ${row['investment_amount']:,.0f}")
                         preview = row['response'][:200] + "..."
-                        st.markdown(f'<div class="history-card">{preview}</div>', unsafe_allow_html=True)
+                        render_history_card(preview)
                         if st.button("View Full", key=f"v_{row['id']}"):
                             st.markdown(row['response'])
                         st.divider()

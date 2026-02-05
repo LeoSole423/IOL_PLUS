@@ -9,24 +9,28 @@ def seed_data():
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+    user_id = "admin"
     
     # Ensure table exists
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS portfolio_snapshots (
-            date TEXT PRIMARY KEY,
+            date TEXT,
+            user_id TEXT,
             total_value REAL,
-            invested_amount REAL
+            invested_amount REAL,
+            PRIMARY KEY (date, user_id)
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS asset_snapshots (
             date TEXT,
+            user_id TEXT,
             symbol TEXT,
             quantity REAL,
             price REAL,
             total_value REAL,
-            PRIMARY KEY (date, symbol)
+            PRIMARY KEY (date, symbol, user_id)
         )
     ''')
     
@@ -54,7 +58,7 @@ def seed_data():
         date_str = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
         
         total_daily = sum(curr_assets.values())
-        history_total.append((date_str, total_daily, 1000000.0))
+        history_total.append((date_str, user_id, total_daily, 1000000.0))
         
         for sym, val in curr_assets.items():
             # Approx Quantity (assuming price=val for simplicity in mock history if qty undefined)
@@ -64,25 +68,25 @@ def seed_data():
             price_mock = val / 10 # dummy
             qty_mock = 10 
             
-            history_assets.append((date_str, sym, qty_mock, price_mock, val))
+            history_assets.append((date_str, user_id, sym, qty_mock, price_mock, val))
             
             # Walk backing
             change_pct = random.uniform(-0.02, 0.025)
             curr_assets[sym] = val / (1 + change_pct)
         
     # Insert Totals
-    for date, value, invested in history_total:
+    for date, uid, value, invested in history_total:
         cursor.execute('''
-            INSERT OR REPLACE INTO portfolio_snapshots (date, total_value, invested_amount)
-            VALUES (?, ?, ?)
-        ''', (date, value, invested))
+            INSERT OR REPLACE INTO portfolio_snapshots (date, user_id, total_value, invested_amount)
+            VALUES (?, ?, ?, ?)
+        ''', (date, uid, value, invested))
         
     # Insert Assets
-    for date, sym, qty, price, val in history_assets:
+    for date, uid, sym, qty, price, val in history_assets:
         cursor.execute('''
-            INSERT OR REPLACE INTO asset_snapshots (date, symbol, quantity, price, total_value)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (date, sym, qty, price, val))
+            INSERT OR REPLACE INTO asset_snapshots (date, user_id, symbol, quantity, price, total_value)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (date, uid, sym, qty, price, val))
         
     conn.commit()
     conn.close()

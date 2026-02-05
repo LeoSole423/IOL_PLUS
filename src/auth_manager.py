@@ -4,6 +4,7 @@ import streamlit_authenticator as stauth
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 import pandas as pd
+import secrets
 
 load_dotenv()
 
@@ -20,7 +21,15 @@ class AuthManager:
         else:
             self.cipher = Fernet(self._key)
             
-        self.cookie_key = os.getenv("COOKIE_KEY", "random_default_123")
+        env_cookie_key = os.getenv("COOKIE_KEY")
+        if env_cookie_key:
+            self.cookie_key = env_cookie_key
+        elif self._key:
+            self.cookie_key = self._key
+            print("WARNING: COOKIE_KEY not set. Using ENCRYPTION_KEY as cookie secret.")
+        else:
+            self.cookie_key = secrets.token_urlsafe(32)
+            print("WARNING: COOKIE_KEY not set. Using ephemeral cookie secret; sessions reset on restart.")
         self._init_users_table()
 
     def _resolve_db_path(self, db_path):
@@ -59,15 +68,19 @@ class AuthManager:
     def create_default_admin(self, cursor):
         """Creates a default admin user migrating current .env credentials"""
         print("Creating default admin user...")
-        # Default pass: admin123
+        admin_password = os.getenv("ADMIN_PASSWORD")
+        if not admin_password:
+            admin_password = secrets.token_urlsafe(12)
+            print(f"WARNING: ADMIN_PASSWORD not set. Generated temporary admin password: {admin_password}")
+
         try:
             # New API for streamlit-authenticator > 0.3.0
-            hashed_pw = stauth.Hasher.hash("admin123")
+            hashed_pw = stauth.Hasher.hash(admin_password)
         except Exception as e:
             print(f"Primary hashing method failed: {e}. Trying legacy method...")
             try:
                 # Legacy API check
-                hasher = stauth.Hasher(["admin123"])
+                hasher = stauth.Hasher([admin_password])
                 hashed_pw = hasher.generate()[0]
             except Exception as e2:
                 print(f"Error hashing password: {e2}")

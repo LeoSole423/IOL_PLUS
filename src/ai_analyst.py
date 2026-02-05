@@ -140,9 +140,20 @@ Las sugerencias deben ser ejecutables en IOL:
             portfolio_summary += f"\n**Valor Total del Portafolio:** ${total_portfolio_value:,.2f} ARS"
 
         # Market context
+        def _format_price(value):
+            if value is None:
+                return "N/A"
+            try:
+                return f"${float(value):,.2f}"
+            except (TypeError, ValueError):
+                return "N/A"
+
         market_context_str = ""
-        for k, v in context_data.items():
-            market_context_str += f"- {k}: ${v:,.2f}\n"
+        if context_data:
+            for k, v in context_data.items():
+                market_context_str += f"- {k}: {_format_price(v)}\n"
+        else:
+            market_context_str = "No se pudo obtener contexto de mercado."
             
         news_str = "\n".join(news_headlines) if news_headlines else "No se encontraron noticias recientes relevantes."
 
