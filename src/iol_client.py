@@ -2,15 +2,47 @@ import requests
 import json
 import time
 from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class IOLClient:
-    def __init__(self, username, password, base_url="https://api.invertironline.com"):
+    def __init__(self, username, password, base_url="https://api.invertironline.com", timeout=10):
         self.username = username
         self.password = password
         self.base_url = base_url
+        self.timeout = timeout
+        self.session = self._create_session()
         self.access_token = None
         self.refresh_token = None
         self.token_expiry = 0
+
+    def _create_session(self):
+        session = requests.Session()
+        try:
+            retry = Retry(
+                total=3,
+                connect=3,
+                read=3,
+                status=3,
+                backoff_factor=0.5,
+                status_forcelist=(429, 500, 502, 503, 504),
+                allowed_methods=frozenset(["GET", "POST"])
+            )
+        except TypeError:
+            retry = Retry(
+                total=3,
+                connect=3,
+                read=3,
+                status=3,
+                backoff_factor=0.5,
+                status_forcelist=(429, 500, 502, 503, 504),
+                method_whitelist=["GET", "POST"]
+            )
+
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session
 
     def authenticate(self):
         """Obtains the access token using the credentials."""
@@ -22,7 +54,7 @@ class IOLClient:
         }
         
         # Note: IOL API sometimes requires standard form data for token
-        response = requests.post(url, data=data)
+        response = self.session.post(url, data=data, timeout=self.timeout)
         
         if response.status_code == 200:
             token_data = response.json()
@@ -56,7 +88,7 @@ class IOLClient:
         endpoint = f"/api/v2/portafolio/{country}"
         url = f"{self.base_url}{endpoint}"
         
-        response = requests.get(url, headers=self._get_headers())
+        response = self.session.get(url, headers=self._get_headers(), timeout=self.timeout)
         
         if response.status_code == 200:
             return response.json()
@@ -70,7 +102,7 @@ class IOLClient:
         endpoint = f"/api/v2/{market}/titulos/{symbol}/cotizacion"
         url = f"{self.base_url}{endpoint}"
         
-        response = requests.get(url, headers=self._get_headers())
+        response = self.session.get(url, headers=self._get_headers(), timeout=self.timeout)
         
         if response.status_code == 200:
             return response.json()

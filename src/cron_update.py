@@ -7,9 +7,12 @@ import logging
 
 # Setup basic logging
 logging.basicConfig(
-    filename='update.log', 
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('update.log')
+    ]
 )
 
 def run_update():

@@ -1,10 +1,14 @@
 import requests
 import json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class AIAnalyst:
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=20):
         self.api_key = api_key
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+        self.timeout = timeout
+        self.session = self._create_session()
         # Prioritize Gemini 3 Pro as default
         self.preferred_models = [
             "gemini-3-pro-preview",
@@ -60,7 +64,7 @@ Las sugerencias deben ser ejecutables en IOL:
         """
         try:
             url = f"{self.base_url}/models?key={self.api_key}"
-            response = requests.get(url)
+            response = self.session.get(url, timeout=self.timeout)
             if response.status_code == 200:
                 data = response.json()
                 available_models = [
@@ -91,7 +95,7 @@ Las sugerencias deben ser ejecutables en IOL:
         """Simple check to verify if the API key is valid."""
         try:
             url = f"{self.base_url}/models?key={self.api_key}"
-            response = requests.get(url)
+            response = self.session.get(url, timeout=self.timeout)
             return response.status_code == 200
         except Exception as e:
             print(f"API Key validation failed: {e}")
@@ -101,7 +105,7 @@ Las sugerencias deben ser ejecutables en IOL:
         """Returns a list of available models that support content generation."""
         try:
             url = f"{self.base_url}/models?key={self.api_key}"
-            response = requests.get(url)
+            response = self.session.get(url, timeout=self.timeout)
             if response.status_code == 200:
                 data = response.json()
                 models = [
@@ -208,7 +212,7 @@ Por favor, realiza tu análisis y proporciona recomendaciones concretas y ejecut
                     }
                 }
             
-            response = requests.post(url, headers=headers, json=data)
+            response = self.session.post(url, headers=headers, json=data, timeout=self.timeout)
             
             if response.status_code == 200:
                 result = response.json()
@@ -237,3 +241,31 @@ Por favor, realiza tu análisis y proporciona recomendaciones concretas y ejecut
                 
         except Exception as e:
             return f"Error generating analysis: {e}", "Unknown Model"
+
+    def _create_session(self):
+        session = requests.Session()
+        try:
+            retry = Retry(
+                total=3,
+                connect=3,
+                read=3,
+                status=3,
+                backoff_factor=0.5,
+                status_forcelist=(429, 500, 502, 503, 504),
+                allowed_methods=frozenset(["GET", "POST"])
+            )
+        except TypeError:
+            retry = Retry(
+                total=3,
+                connect=3,
+                read=3,
+                status=3,
+                backoff_factor=0.5,
+                status_forcelist=(429, 500, 502, 503, 504),
+                method_whitelist=["GET", "POST"]
+            )
+
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session

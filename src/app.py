@@ -142,6 +142,13 @@ def iol_credentials_status(iol_user, iol_pass):
         return "⚠️ IOL: Credenciales incompletas"
     return "⚠️ IOL: Credenciales no guardadas"
 
+def get_mock_portfolio():
+    return [
+        {"Symbol": "SPY.BA", "Description": "S&P 500 ETF CEDEAR", "Quantity": 10, "Last Price": 52250.0, "Total Value": 522500.0, "Daily Var %": 0.5},
+        {"Symbol": "GGAL.BA", "Description": "Grupo Financiero Galicia", "Quantity": 100, "Last Price": 8125.0, "Total Value": 812500.0, "Daily Var %": -1.2},
+        {"Symbol": "MELI.BA", "Description": "MercadoLibre CEDEAR", "Quantity": 5, "Last Price": 26700.0, "Total Value": 133500.0, "Daily Var %": 2.1},
+    ]
+
 def render_ai_response(text):
     st.markdown('<div class="ai-response">', unsafe_allow_html=True)
     st.markdown(text)
@@ -175,11 +182,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
         if use_simulation:
             st.caption("🧪 Running in Simulation Mode")
             st.info("Desactiva Simulation Mode para traer datos reales de IOL.")
-            portfolio_data = [
-                {"Symbol": "SPY.BA", "Description": "S&P 500 ETF CEDEAR", "Quantity": 10, "Last Price": 52250.0, "Total Value": 522500.0, "Daily Var %": 0.5},
-                {"Symbol": "GGAL.BA", "Description": "Grupo Financiero Galicia", "Quantity": 100, "Last Price": 8125.0, "Total Value": 812500.0, "Daily Var %": -1.2},
-                {"Symbol": "MELI.BA", "Description": "MercadoLibre CEDEAR", "Quantity": 5, "Last Price": 26700.0, "Total Value": 133500.0, "Daily Var %": 2.1},
-            ]
+            portfolio_data = get_mock_portfolio()
         else:
             try:
                 # Use passed credentials
@@ -188,22 +191,22 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
                 raw_portfolio = iol.get_portfolio()
                 
                 if raw_portfolio and 'activos' in raw_portfolio:
-                     for asset in raw_portfolio['activos']:
-                         symbol = asset.get('titulo', {}).get('simbolo', 'N/A')
-                         desc = asset.get('titulo', {}).get('descripcion', '')
-                         qty = asset.get('cantidad', 0)
-                         last_price = asset.get('ultimoPrecio', 0.0)
-                         total_val = asset.get('valorizado', 0.0)
-                         daily_var = asset.get('variacionDiaria', 0.0)
-                         
-                         portfolio_data.append({
-                             "Symbol": symbol,
-                             "Description": desc,
-                             "Quantity": qty,
-                             "Last Price": last_price,
-                             "Total Value": total_val,
-                             "Daily Var %": daily_var
-                         })
+                    for asset in raw_portfolio['activos']:
+                        symbol = asset.get('titulo', {}).get('simbolo', 'N/A')
+                        desc = asset.get('titulo', {}).get('descripcion', '')
+                        qty = asset.get('cantidad', 0)
+                        last_price = asset.get('ultimoPrecio', 0.0)
+                        total_val = asset.get('valorizado', 0.0)
+                        daily_var = asset.get('variacionDiaria', 0.0)
+                        
+                        portfolio_data.append({
+                            "Symbol": symbol,
+                            "Description": desc,
+                            "Quantity": qty,
+                            "Last Price": last_price,
+                            "Total Value": total_val,
+                            "Daily Var %": daily_var
+                        })
                 elif raw_portfolio:
                     if isinstance(raw_portfolio, dict):
                         keys = ", ".join(raw_portfolio.keys())
@@ -211,8 +214,9 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
                     else:
                         st.warning("IOL respondió, pero el formato no es el esperado.")
             except Exception as e:
-                st.error(f"Failed to connect to IOL: {e}")
-                # Fallback to empty if error?
+                st.warning("No se pudo conectar a IOL. Se muestran datos simulados.")
+                st.error(f"Detalle del error IOL: {e}")
+                portfolio_data = get_mock_portfolio()
         
         # --- Display ---
         if portfolio_data:
