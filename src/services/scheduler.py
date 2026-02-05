@@ -1,9 +1,8 @@
 import time
 import schedule
 import logging
-from cron_update import run_update
 import sys
-import subprocess
+from .cron_update import run_update
 
 # Setup logging
 logging.basicConfig(

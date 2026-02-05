@@ -56,7 +56,7 @@
    # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ENCRYPTION_KEY=tu_clave_fernet_aqui
 
-   # Recomendado: clave para cookies de sesión (si no se setea, se usa ENCRYPTION_KEY)
+   # Obligatorio: clave para cookies de sesión
    COOKIE_KEY=tu_cookie_key_aqui
 
    # Recomendado: contraseña del usuario admin inicial
@@ -68,7 +68,7 @@
    IOL_PASSWORD=tu_password_iol
    ```
    *Nota: Si no configuras las credenciales de IOL, la app funcionará en "Modo Simulación" por defecto.*
-   *Nota: Si no configuras `ENCRYPTION_KEY`, la app no podrá guardar credenciales en la base de datos.*
+   *Nota: Si no configuras `ENCRYPTION_KEY` y `COOKIE_KEY`, la app se detendrá al iniciar.*
 
 ## ▶️ Ejecución
 
@@ -77,7 +77,7 @@
 Para iniciar la aplicación web:
 
 ```bash
-streamlit run src/app.py
+streamlit run app.py
 ```
 
 La aplicación se abrirá automáticamente en tu navegador (usualmente en `http://localhost:8501`).
@@ -104,6 +104,35 @@ Para detener todo:
 ```bash
 docker-compose down
 ```
+
+## 🧱 Estructura del Proyecto
+
+```
+app.py
+src/
+  __init__.py
+  settings.py
+  ui/
+    app.py
+  services/
+    ai_analyst.py
+    market_data.py
+    iol_client.py
+    cron_update.py
+    scheduler.py
+    list_models.py
+  data/
+    auth_manager.py
+    portfolio_manager.py
+    seed_history.py
+```
+
+**Descripción rápida**
+- `app.py`: entrypoint para Streamlit (`streamlit run app.py`).
+- `src/settings.py`: configuración central (Pydantic + `.env`).
+- `src/ui/`: capa de interfaz (Streamlit).
+- `src/services/`: lógica de negocio e integraciones externas.
+- `src/data/`: acceso a datos y persistencia (SQLite).
 
 ## ⚠️ Disclaimer
 

@@ -1,9 +1,13 @@
-import os
 import requests
-from dotenv import load_dotenv
+from ..settings import get_settings, SettingsError
 
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
+try:
+    settings = get_settings()
+except SettingsError as exc:
+    print(str(exc))
+    raise SystemExit(1)
+
+api_key = settings.GEMINI_API_KEY
 
 if not api_key:
     print("No API Key found in .env")

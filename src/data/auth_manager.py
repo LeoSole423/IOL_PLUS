@@ -1,41 +1,25 @@
 import sqlite3
 import os
+import secrets
+import pandas as pd
 import streamlit_authenticator as stauth
 from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-import pandas as pd
-import secrets
-
-load_dotenv()
+from ..settings import get_settings
 
 class AuthManager:
     def __init__(self, db_path="data/inver.db"):
         self.db_path = self._resolve_db_path(db_path)
         self._ensure_db_dir()
-        self._key = os.getenv("ENCRYPTION_KEY")
-        if not self._key:
-            # Generate a key if missing (fallback for dev, but better to enforce env)
-            # In live, we might want to warn.
-            print("WARNING: ENCRYPTION_KEY not found. Helper functions will fail.")
-            self.cipher = None
-        else:
-            self.cipher = Fernet(self._key)
-            
-        env_cookie_key = os.getenv("COOKIE_KEY")
-        if env_cookie_key:
-            self.cookie_key = env_cookie_key
-        elif self._key:
-            self.cookie_key = self._key
-            print("WARNING: COOKIE_KEY not set. Using ENCRYPTION_KEY as cookie secret.")
-        else:
-            self.cookie_key = secrets.token_urlsafe(32)
-            print("WARNING: COOKIE_KEY not set. Using ephemeral cookie secret; sessions reset on restart.")
+        self.settings = get_settings()
+        self._key = self.settings.ENCRYPTION_KEY
+        self.cipher = Fernet(self._key)
+        self.cookie_key = self.settings.COOKIE_KEY
         self._init_users_table()
 
     def _resolve_db_path(self, db_path):
         if os.path.isabs(db_path):
             return db_path
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         return os.path.join(project_root, db_path)
 
     def _ensure_db_dir(self):
@@ -68,7 +52,7 @@ class AuthManager:
     def create_default_admin(self, cursor):
         """Creates a default admin user migrating current .env credentials"""
         print("Creating default admin user...")
-        admin_password = os.getenv("ADMIN_PASSWORD")
+        admin_password = self.settings.ADMIN_PASSWORD
         if not admin_password:
             admin_password = secrets.token_urlsafe(12)
             print(f"WARNING: ADMIN_PASSWORD not set. Generated temporary admin password: {admin_password}")
@@ -87,9 +71,9 @@ class AuthManager:
                 hashed_pw = "$2b$12$DEFAULT_HASH_IF_FAILED_TO_GEN" # Fallback, should not happen
 
         # Get env vars to migrate
-        gemini = os.getenv("GEMINI_API_KEY", "")
-        iol_u = os.getenv("IOL_USERNAME", "")
-        iol_p = os.getenv("IOL_PASSWORD", "")
+        gemini = self.settings.GEMINI_API_KEY or ""
+        iol_u = self.settings.IOL_USERNAME or ""
+        iol_p = self.settings.IOL_PASSWORD or ""
         
         # Encrypt
         gemini_enc = self.encrypt(gemini) if gemini else None
@@ -102,11 +86,13 @@ class AuthManager:
         ''', ("admin", "Administrator", "admin@inver.app", hashed_pw, gemini_enc, iol_u_enc, iol_p_enc))
 
     def encrypt(self, text):
-        if not text or not self.cipher: return None
+        if not text:
+            return None
         return self.cipher.encrypt(text.encode()).decode()
 
     def decrypt(self, text):
-        if not text or not self.cipher: return None
+        if not text:
+            return None
         try:
             return self.cipher.decrypt(text.encode()).decode()
         except:

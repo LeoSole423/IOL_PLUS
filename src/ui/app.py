@@ -1,17 +1,13 @@
 import streamlit as st
 import pandas as pd
-import os
-from dotenv import load_dotenv
 import plotly.express as px
 import re
 
-from iol_client import IOLClient
-from market_data import MarketData
-from portfolio_manager import PortfolioManager
-from auth_manager import AuthManager
-
-# Load environment
-load_dotenv()
+from ..services.iol_client import IOLClient
+from ..services.market_data import MarketData
+from ..data.portfolio_manager import PortfolioManager
+from ..data.auth_manager import AuthManager
+from ..settings import get_settings, SettingsError
 
 # Page Config MUST be the first Streamlit command
 st.set_page_config(page_title="Investment Assistant", layout="wide", page_icon="💰")
@@ -159,7 +155,7 @@ def render_history_card(text):
     st.markdown(text)
     st.markdown('</div>', unsafe_allow_html=True)
 
-def run_app(username, full_name, gemini_key, iol_user, iol_pass):
+def run_app(username, full_name, gemini_key, iol_user, iol_pass, iol_base_url):
     st.title(f"💰 Personal Investment Assistant")
     st.caption(f"Logged in as: {full_name}")
 
@@ -186,7 +182,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
         else:
             try:
                 # Use passed credentials
-                iol = IOLClient(iol_user, iol_pass)
+                iol = IOLClient(iol_user, iol_pass, base_url=iol_base_url)
                 iol.authenticate()
                 raw_portfolio = iol.get_portfolio()
                 
@@ -327,7 +323,7 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
         reasoning_mode = True
         
         if gemini_key:
-            from ai_analyst import AIAnalyst
+            from ..services.ai_analyst import AIAnalyst
             analyst = AIAnalyst(gemini_key)
             
             col_cfg1, col_cfg2 = st.columns([1, 1])
@@ -414,6 +410,14 @@ def run_app(username, full_name, gemini_key, iol_user, iol_pass):
 
 
 def main():
+    try:
+        settings = get_settings()
+    except SettingsError as exc:
+        st.error(str(exc))
+        st.stop()
+
+    iol_base_url = settings.IOL_API_URL
+
     # Authentication
     auth_manager = AuthManager()
     authenticator = auth_manager.get_authenticator()
@@ -436,8 +440,6 @@ def main():
             with st.expander("🔐 API Credentials"):
                 # Load current keys
                 keys = auth_manager.get_user_keys(user_key)
-                if auth_manager.cipher is None:
-                    st.error("ENCRYPTION_KEY no configurada. No se pueden guardar credenciales. Corrige .env y reinicia.")
                 
                 new_gemini = st.text_input("Gemini API Key", value=keys.get("gemini") or "", type="password")
                 new_iol_u = st.text_input("IOL Username", value=keys.get("iol_user") or "", type="password")
@@ -451,19 +453,16 @@ def main():
                     st.info("Usando credenciales ingresadas en esta sesión. Guardalas para persistir.")
                 
                 if st.button("Save Credentials"):
-                    if auth_manager.cipher is None:
-                        st.error("No se pueden guardar credenciales sin ENCRYPTION_KEY.")
-                    else:
-                        try:
-                            auth_manager.update_user_keys(user_key, new_gemini, new_iol_u, new_iol_p)
-                            saved = auth_manager.get_user_keys(user_key)
-                            if saved.get("iol_user") or saved.get("iol_pass") or saved.get("gemini"):
-                                st.success("Saved!")
-                            else:
-                                st.warning("Guardado, pero no se pudo leer desde la DB. Revisá ENCRYPTION_KEY.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"No se pudo guardar: {e}")
+                    try:
+                        auth_manager.update_user_keys(user_key, new_gemini, new_iol_u, new_iol_p)
+                        saved = auth_manager.get_user_keys(user_key)
+                        if saved.get("iol_user") or saved.get("iol_pass") or saved.get("gemini"):
+                            st.success("Saved!")
+                        else:
+                            st.warning("Guardado, pero no se pudo leer desde la DB. Revisá ENCRYPTION_KEY.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo guardar: {e}")
 
                 if st.button("Check IOL Credentials"):
                     test_iol_u = new_iol_u or keys.get("iol_user")
@@ -473,7 +472,7 @@ def main():
                     else:
                         with st.spinner("Conectando a IOL..."):
                             try:
-                                iol = IOLClient(test_iol_u, test_iol_p)
+                                iol = IOLClient(test_iol_u, test_iol_p, base_url=iol_base_url)
                                 iol.authenticate()
                                 portfolio = iol.get_portfolio()
                                 if isinstance(portfolio, dict) and "activos" in portfolio:
@@ -485,16 +484,18 @@ def main():
 
         # Get credentials for the session
         keys = auth_manager.get_user_keys(user_key)
-        gemini_key = keys.get("gemini") or os.getenv("GEMINI_API_KEY") # Fallback to global if using admin
+        gemini_key = keys.get("gemini") or settings.GEMINI_API_KEY
         iol_u = st.session_state.get("iol_user_input") or keys.get("iol_user")
         iol_p = st.session_state.get("iol_pass_input") or keys.get("iol_pass")
         
         # If user is admin and no personal keys, fallback to env
         if user_key == "admin":
-             if not iol_u: iol_u = os.getenv("IOL_USERNAME")
-             if not iol_p: iol_p = os.getenv("IOL_PASSWORD")
+            if not iol_u:
+                iol_u = settings.IOL_USERNAME
+            if not iol_p:
+                iol_p = settings.IOL_PASSWORD
 
-        run_app(user_key, name, gemini_key, iol_u, iol_p)
+        run_app(user_key, name, gemini_key, iol_u, iol_p, iol_base_url)
 
     elif st.session_state["authentication_status"] is False:
         st.error("Username/password is incorrect")

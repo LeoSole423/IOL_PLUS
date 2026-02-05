@@ -9,3 +9,5 @@ schedule
 streamlit-authenticator
 cryptography
 bcrypt
+pydantic
+pydantic-settings

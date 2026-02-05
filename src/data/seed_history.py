@@ -1,13 +1,15 @@
 import sqlite3
 from datetime import datetime, timedelta
 import random
+from pathlib import Path
 
 import os
 
 def seed_data():
-    db_path = "data/inver.db"
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    project_root = Path(__file__).resolve().parents[2]
+    db_path = project_root / "data" / "inver.db"
+    os.makedirs(db_path.parent, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     user_id = "admin"
     

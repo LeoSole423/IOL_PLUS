@@ -19,7 +19,7 @@ services:
     build: .
     container_name: inver-scheduler
     # Override the default command to run the scheduler script
-    command: python src/scheduler.py
+    command: python -m src.services.scheduler
     volumes:
       - ./data:/app/data
       - ./.env:/app/.env

@@ -1,9 +1,9 @@
 import os
 import sys
-from dotenv import load_dotenv
-from iol_client import IOLClient
-from portfolio_manager import PortfolioManager
 import logging
+from .iol_client import IOLClient
+from ..data.portfolio_manager import PortfolioManager
+from ..settings import get_settings, SettingsError
 
 # Setup basic logging
 logging.basicConfig(
@@ -16,16 +16,18 @@ logging.basicConfig(
 )
 
 def run_update():
-    # Load env from the project root (assuming script runs from project root or finding .env explicitly)
-    # We'll assume CWD is project root for simplicity, or find relative to file.
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    env_path = os.path.join(project_root, '.env')
-    
-    load_dotenv(env_path)
-    
-    iol_username = os.getenv("IOL_USERNAME")
-    iol_password = os.getenv("IOL_PASSWORD")
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+
+    try:
+        settings = get_settings()
+    except SettingsError as exc:
+        logging.error(str(exc))
+        return
+
+    iol_username = settings.IOL_USERNAME
+    iol_password = settings.IOL_PASSWORD
+    iol_base_url = settings.IOL_API_URL
     
     pm = PortfolioManager(db_path=os.path.join(project_root, "data", "inver.db"))
     
@@ -43,27 +45,27 @@ def run_update():
         ]
     else:
         try:
-            iol = IOLClient(iol_username, iol_password)
+            iol = IOLClient(iol_username, iol_password, base_url=iol_base_url)
             iol.authenticate()
             raw_portfolio = iol.get_portfolio()
             
             if raw_portfolio and 'activos' in raw_portfolio:
-                 for asset in raw_portfolio['activos']:
-                     symbol = asset.get('titulo', {}).get('simbolo', 'N/A')
-                     desc = asset.get('titulo', {}).get('descripcion', '')
-                     qty = asset.get('cantidad', 0)
-                     last_price = asset.get('ultimoPrecio', 0.0)
-                     total_val = asset.get('valorizado', 0.0)
-                     daily_var = asset.get('variacionDiaria', 0.0)
-                     
-                     portfolio_data.append({
-                         "Symbol": symbol,
-                         "Description": desc,
-                         "Quantity": qty,
-                         "Last Price": last_price,
-                         "Total Value": total_val,
-                         "Daily Var %": daily_var
-                     })
+                for asset in raw_portfolio['activos']:
+                    symbol = asset.get('titulo', {}).get('simbolo', 'N/A')
+                    desc = asset.get('titulo', {}).get('descripcion', '')
+                    qty = asset.get('cantidad', 0)
+                    last_price = asset.get('ultimoPrecio', 0.0)
+                    total_val = asset.get('valorizado', 0.0)
+                    daily_var = asset.get('variacionDiaria', 0.0)
+                    
+                    portfolio_data.append({
+                        "Symbol": symbol,
+                        "Description": desc,
+                        "Quantity": qty,
+                        "Last Price": last_price,
+                        "Total Value": total_val,
+                        "Daily Var %": daily_var
+                    })
             logging.info("Successfully fetched data from IOL.")
             
         except Exception as e:

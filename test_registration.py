@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Test script to verify registration functionality"""
+from pathlib import Path
 import sys
-sys.path.insert(0, 'src')
 
-from auth_manager import AuthManager
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
+from src.data.auth_manager import AuthManager
 
 def test_registration():
     auth = AuthManager()
